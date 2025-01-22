@@ -1,0 +1,15 @@
+accelerate
+controlnet-aux
+diffusers
+einops
+einops
+gguf
+kornia
+opencv-python
+scikit-image
+scipy
+timm
+torchsde
+torchvision
+transformers
+xformers

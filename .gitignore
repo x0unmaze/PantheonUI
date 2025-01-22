@@ -1,0 +1,6 @@
+__pycache__/
+/custom_nodes/
+/input/
+/models/
+/output/
+/temp/
