@@ -13,3 +13,4 @@ torchsde
 torchvision
 transformers
 xformers
+gguf
