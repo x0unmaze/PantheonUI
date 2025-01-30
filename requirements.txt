@@ -2,10 +2,10 @@ accelerate
 controlnet-aux
 diffusers
 einops
-einops
 gguf
 kornia
 opencv-python
+pilgram
 scikit-image
 scipy
 timm
@@ -13,4 +13,3 @@ torchsde
 torchvision
 transformers
 xformers
-gguf

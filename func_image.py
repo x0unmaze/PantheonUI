@@ -1,10 +1,33 @@
+import os
 import cv2
 import math
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageOps
-from typing import Dict, List, Tuple
-
+import requests
 import torch
+import pilgram
+
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
+from typing import Dict, List, Tuple, Union
+
+
+def load_image(image: Union[str, Image.Image]) -> Image.Image:
+    if isinstance(image, str):
+        try:
+            if image.startswith("http://") or image.startswith("https://"):
+                response = requests.get(image, stream=True)
+                response.raise_for_status()  # Raise exception for non-2xx status codes
+                image = Image.open(response.raw)
+            elif os.path.isfile(image):
+                image = Image.open(image)
+            else:
+                raise ValueError("Incorrect path or URL.")
+        except requests.exceptions.RequestException as e:
+            raise ValueError(f"Error downloading image: {e}")
+    elif isinstance(image, Image.Image):
+        pass  # Image object already loaded, do nothing
+    else:
+        raise ValueError("Incorrect format used for the image.")
+    return image
 
 
 def cv22pil(cv2_img: np.ndarray) -> Image.Image:
@@ -217,8 +240,11 @@ def YCbCr2RGB(t):
 
 def cv_blur_tensor(images, dx, dy):
     if min(dx, dy) > 100:
-        np_img = torch.nn.functional.interpolate(images.detach().clone(
-        ).movedim(-1, 1), scale_factor=0.1, mode='bilinear').movedim(1, -1).cpu().numpy()
+        np_img = torch.nn.functional.interpolate(
+            images.detach().clone().movedim(-1, 1),
+            scale_factor=0.1,
+            mode='bilinear',
+        ).movedim(1, -1).cpu().numpy()
         for index, image in enumerate(np_img):
             np_img[index] = cv2.GaussianBlur(
                 image, (dx // 20 * 2 + 1, dy // 20 * 2 + 1), 0)
@@ -234,8 +260,12 @@ def image_add_grain(image: Image, scale: float = 0.5, strength: float = 0.5, sat
     image = pil2tensor(image.convert("RGB"))
     t = image.detach().clone()
     torch.manual_seed(seed)
-    grain = torch.rand(t.shape[0], int(
-        t.shape[1] // scale), int(t.shape[2] // scale), 3)
+    grain = torch.rand(
+        t.shape[0],
+        int(t.shape[1] // scale),
+        int(t.shape[2] // scale),
+        3,
+    )
 
     YCbCr = RGB2YCbCr(grain)
     YCbCr[:, :, :, 0] = cv_blur_tensor(YCbCr[:, :, :, 0], 3, 3)
@@ -246,17 +276,68 @@ def image_add_grain(image: Image, scale: float = 0.5, strength: float = 0.5, sat
     grain[:, :, :, 0] *= 2
     grain[:, :, :, 2] *= 3
     grain += 1
-    grain = grain * saturation + \
-        grain[:, :, :, 1].unsqueeze(3).repeat(1, 1, 1, 3) * (1 - saturation)
+    grain = grain * saturation + grain[:, :, :, 1].unsqueeze(3).repeat(1, 1, 1, 3) * (1 - saturation)
 
     grain = torch.nn.functional.interpolate(
         grain.movedim(-1, 1),
         size=(t.shape[1], t.shape[2]),
         mode='bilinear',
     ).movedim(1, -1)
-    t[:, :, :, :3] = torch.clip(
-        (1 - (1 - t[:, :, :, :3]) * grain) * (1 - toe) + toe, 0, 1)
+    t[:, :, :, :3] = torch.clip((1 - (1 - t[:, :, :, :3]) * grain) * (1 - toe) + toe, 0, 1)
     return tensor2pil(t)
+
+
+def expand_image(image, left: int = 0, top: int = 0, right: int = 0, bottom: int = 0, feathering: int = 0, blur_size: int = 0):
+    """
+    Expands the given image with the specified margins and feathering.
+
+    Args:
+        image: The input PIL Image object.
+        left: Left margin size.
+        top: Top margin size.
+        right: Right margin size.
+        bottom: Bottom margin size.
+        feathering: Feathering distance in pixels.
+
+    Returns:
+        A tuple containing:
+            - The expanded PIL Image object.
+            - A PIL Image object representing the feathering mask.
+    """
+
+    width, height = image.size
+
+    nw = width + left + right
+    nh = height + top + bottom
+
+    # Create a new image with the expanded dimensions
+    new_image = Image.new('RGB', (nw, nh), (127, 127, 127))  # Gray background
+    new_image.paste(image, (left, top))
+
+    # Create a mask
+    mask = Image.new('L', (nw, nh), 255)  # White mask
+    mask.paste(Image.new('L', image.size), (left, top))
+
+    if feathering > 0 and feathering * 2 < height and feathering * 2 < width:
+        for y in range(height):
+            for x in range(width):
+                # Calculate distances to edges
+                dt = y if top != 0 else height
+                db = height - y if bottom != 0 else height
+                dl = x if left != 0 else width
+                dr = width - x if right != 0 else width
+                d = min(dt, db, dl, dr)
+
+                if d >= feathering:
+                    continue
+
+                # Calculate feathering value
+                v = (feathering - d) / feathering
+                # Apply feathering to mask
+                mask.putpixel((x + left, y + top), int(v * v * 255))
+
+    mask = mask_blur(mask, blur_size)
+    return new_image, mask
 
 
 def replace_subject_v1(base_img: Image.Image, dest_img: Image.Image, mask_img: Image.Image, blur_size: int = 12, grow_size: int = -8, blend_percentage: float = 0.3):
@@ -267,3 +348,17 @@ def replace_subject_v1(base_img: Image.Image, dest_img: Image.Image, mask_img: I
     subject_mask = mask_blur(mask_grow(mask_img, grow_size), blur_size)
     final = Image.composite(blended, dest_img, subject_mask)
     return final
+
+def replace_subject_v2(base_img, dest_img, mask_img, blur_size=6, grow_size=-12, blend_size=0.5, brightness=1.0):
+    base_img = pilgram.css.brightness(base_img, brightness)
+
+    simple_mask = mask_blur(mask_grow(mask_img, -1), 1)
+    simple_base = Image.composite(base_img, dest_img, simple_mask)
+    simple_base = color_adapter(simple_base, dest_img)
+
+    colour_base = pilgram.css.blending.soft_light(simple_base, dest_img)
+    result_base = image_blend(colour_base, dest_img, 0.5)
+    result_base = image_blend(simple_base, result_base, blend_size)
+    subject_mask = mask_blur(mask_grow(mask_img, grow_size), blur_size)
+    final = Image.composite(result_base, dest_img, subject_mask)
+    return [subject_mask, dest_img, simple_base, colour_base, result_base, final]
