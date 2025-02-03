@@ -4,10 +4,11 @@ import random
 import nodes
 import folder_paths as folders
 
-from typing import List, Tuple
+from typing import List, Tuple, Union
 from controlnet_aux.processor import Processor as ControlnetAux
 from func_download import auto_download
 from func_image import load_image, pil2tensor, tensor2pil
+from PIL import Image
 
 PREPROCESSORS = [
     'canny',
@@ -64,9 +65,13 @@ def create_controlnet_images(processor: str, images: List, device='cuda'):
 
 class SD15Container:
     def __init__(self, civitai_token: str = ''):
-        self.unet = self.clip = self.unet_f, self.clip_f = None
+        self.unet = None
+        self.unet_f = None
+        self.clip = None
+        self.clip_f = None
         self.cnet = {}
         self.civitai_token = civitai_token
+
 
     def load_checkpoint(self, ldm_path: str, vae_path: str = None):
         CheckpointLoader = nodes.CheckpointLoaderSimple()
@@ -112,10 +117,10 @@ class SD15Container:
                     weight,
                 )
                 print(f'LoRA {path} is loaded; weight: {weight}')
-        
+
         return self.unet_f, self.clip_f
     
-    def apply_controlnet(self, pos_cond, neg_cond, controlnet, image, strength, start, end):
+    def apply_controlnet(self, pos_cond, neg_cond, controlnet: str, image: Union[str, Image.Image], strength: float = 1.0, start: float = 0.0, end: float = 1.0):
         ControlNetLoader = nodes.ControlNetLoader()
         ControlNetSetter = nodes.ControlNetApplyAdvanced()
 
@@ -125,7 +130,9 @@ class SD15Container:
             name = os.path.basename(controlnet) if link else None
             path = auto_download((link or path), cnet_dir, self.civitai_token, name)
             self.cnet[controlnet] = ControlNetLoader.load_controlnet(name)[0]
+            print(f'Controlnet {path} is first loaded')
 
+        image = pil2tensor(load_image(image))
         pos_cond, neg_cond = ControlNetSetter.apply_controlnet(
             pos_cond,
             neg_cond,
@@ -140,17 +147,17 @@ class SD15Container:
     @torch.inference_mode()
     def generate(
         self,
-        positive_prompt,
-        negative_prompt,
-        base_image = None,
-        mask_image = None,
+        positive_prompt: str,
+        negative_prompt: str,
+        base_image: Union[str, Image.Image] = None,
+        mask_image: Union[str, Image.Image] = None,
         controlnet: List[Tuple] = [],
         width: int = 512,
         height: int = 512,
         seed: int = 0,
         steps: int = 30,
         cfg: float = 7.5,
-        sampler_name: str = 'euler a',
+        sampler_name: str = 'euler',
         scheduler: str = 'simple',
         denoise: float = 1.0,
         batch_size: int = 1,
@@ -163,32 +170,30 @@ class SD15Container:
         LatentUpscaleBy = nodes.LatentUpscaleBy()
         LoadImage = nodes.LoadImage()
         LoadImageMask = nodes.LoadImageMask()
+        InpaintCondition = nodes.InpaintModelConditioning()
         VAEDecode = nodes.VAEDecode()
         VAEEncode = nodes.VAEEncode()
-
-        latent_image = EmptyLatentImage.generate(width, height)[0]
-        if base_image:
-            base_image = LoadImage.load_image(base_image)[0]
-            latent_image = VAEEncode.encode(self.vae, base_image)[0]
 
         pos_cond = CLIPTextEncode.encode(self.clip_f, positive_prompt)[0]
         neg_cond = CLIPTextEncode.encode(self.clip_f, negative_prompt)[0]
 
         for item in controlnet:
-            pos_cond, neg_cond = self.apply_controlnet(
-                pos_cond,
-                neg_cond,
-                item[0],
-                item[1] if isinstance(item[1], torch.Tensor) else pil2tensor(item[1]),
-                item[2],
-                item[3],
-                item[4],
-            )
+            pos_cond, neg_cond = self.apply_controlnet(pos_cond,neg_cond, item[0], item[1], item[2], item[3], item[4])
+
+        latent_image = EmptyLatentImage.generate(width, height)[0]
+
+        if base_image and not mask_image:
+            base_image = pil2tensor(load_image(base_image))
+            latent_image = VAEEncode.encode(self.vae, base_image)[0]
+        elif base_image and mask_image:
+            mask_image = pil2tensor(load_image(mask_image).convert('L'))
+            base_image = pil2tensor(load_image(base_image))
+            pos_cond, neg_cond, latent_image = InpaintCondition.encode(pos_cond, neg_cond, base_image, self.vae, mask_image)
 
         images = []
         for i in range(batch_size):
             seed_it = seed if seed > 1 else random.randint(0, 18446744073709552000)
-            print('used seed:', seed_it)
+            print(f'#{i} used seed:', seed_it)
 
             sample = KSampler.sample(
                 self.unet_f,
@@ -205,11 +210,7 @@ class SD15Container:
 
             if hires_fix:
                 print('hires fix ...')
-                latent_image = LatentUpscaleBy.upscale(
-                    sample,
-                    'bislerp',
-                    hires_fix_scale_by,
-                )[0]
+                latent_image = LatentUpscaleBy.upscale(sample, 'bislerp', hires_fix_scale_by)[0]
                 sample = KSampler.sample(
                     self.unet_f,
                     seed=seed_it,

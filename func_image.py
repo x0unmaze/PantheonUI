@@ -120,7 +120,7 @@ def blur_fusion_foreground_estimator_with_alpha(image, alpha, r=90):
     return blur_fusion_foreground_estimator(image, F, blur_B, alpha, r=6)[0]
 
 
-def refine_foreground(image, mask, r=90):
+def refine_foreground(image, mask, r=90) -> Image.Image:
     if mask.size != image.size:
         mask = mask.resize(image.size)
     image = np.array(image) / 255.0
@@ -151,7 +151,7 @@ def color_adapter(image: Image.Image, ref_image: Image.Image) -> Image.Image:
     return cv22pil(ret_image)
 
 
-def image_blend(background: Image.Image, foreground: Image.Image, percentage: float):
+def image_blend(background: Image.Image, foreground: Image.Image, percentage: float) -> Image.Image:
     blend_mask = Image.new('L', background.size, round(percentage * 255))
     blend_mask = ImageOps.invert(blend_mask)
     image_result = Image.composite(background, foreground, blend_mask)
@@ -220,20 +220,16 @@ def gradient_image(size: Tuple[int, int], mode: str = 'horizontal', colors: Dict
 
 def RGB2YCbCr(t):
     YCbCr = t.detach().clone()
-    YCbCr[:, :, :, 0] = 0.2123 * t[:, :, :, 0] + \
-        0.7152 * t[:, :, :, 1] + 0.0722 * t[:, :, :, 2]
-    YCbCr[:, :, :, 1] = 0 - 0.1146 * t[:, :, :, 0] - \
-        0.3854 * t[:, :, :, 1] + 0.5 * t[:, :, :, 2]
-    YCbCr[:, :, :, 2] = 0.5 * t[:, :, :, 0] - \
-        0.4542 * t[:, :, :, 1] - 0.0458 * t[:, :, :, 2]
+    YCbCr[:, :, :, 0] = 0.2123 * t[:, :, :, 0] + 0.7152 * t[:, :, :, 1] + 0.0722 * t[:, :, :, 2]
+    YCbCr[:, :, :, 1] = 0 - 0.1146 * t[:, :, :, 0] - 0.3854 * t[:, :, :, 1] + 0.5 * t[:, :, :, 2]
+    YCbCr[:, :, :, 2] = 0.5 * t[:, :, :, 0] - 0.4542 * t[:, :, :, 1] - 0.0458 * t[:, :, :, 2]
     return YCbCr
 
 
 def YCbCr2RGB(t):
     RGB = t.detach().clone()
     RGB[:, :, :, 0] = t[:, :, :, 0] + 1.5748 * t[:, :, :, 2]
-    RGB[:, :, :, 1] = t[:, :, :, 0] - 0.1873 * \
-        t[:, :, :, 1] - 0.4681 * t[:, :, :, 2]
+    RGB[:, :, :, 1] = t[:, :, :, 0] - 0.1873 * t[:, :, :, 1] - 0.4681 * t[:, :, :, 2]
     RGB[:, :, :, 2] = t[:, :, :, 0] + 1.8556 * t[:, :, :, 1]
     return RGB
 
@@ -246,8 +242,7 @@ def cv_blur_tensor(images, dx, dy):
             mode='bilinear',
         ).movedim(1, -1).cpu().numpy()
         for index, image in enumerate(np_img):
-            np_img[index] = cv2.GaussianBlur(
-                image, (dx // 20 * 2 + 1, dy // 20 * 2 + 1), 0)
+            np_img[index] = cv2.GaussianBlur(image, (dx // 20 * 2 + 1, dy // 20 * 2 + 1), 0)
         return torch.nn.functional.interpolate(torch.from_numpy(np_img).movedim(-1, 1), size=(images.shape[1], images.shape[2]), mode='bilinear').movedim(1, -1)
     else:
         np_img = images.detach().clone().cpu().numpy()
@@ -256,7 +251,7 @@ def cv_blur_tensor(images, dx, dy):
         return torch.from_numpy(np_img)
 
 
-def image_add_grain(image: Image, scale: float = 0.5, strength: float = 0.5, saturation: float = 0.7, toe: float = 0.0, seed: int = 0) -> Image:
+def image_add_grain(image: Image.Image, scale: float = 0.5, strength: float = 0.5, saturation: float = 0.7, toe: float = 0.0, seed: int = 0) -> Image.Image:
     image = pil2tensor(image.convert("RGB"))
     t = image.detach().clone()
     torch.manual_seed(seed)
@@ -287,7 +282,7 @@ def image_add_grain(image: Image, scale: float = 0.5, strength: float = 0.5, sat
     return tensor2pil(t)
 
 
-def expand_image(image, left: int = 0, top: int = 0, right: int = 0, bottom: int = 0, feathering: int = 0, blur_size: int = 0):
+def expand_image(image: Image.Image, left: int = 0, top: int = 0, right: int = 0, bottom: int = 0, feathering: int = 0, blur_size: int = 0) -> Image.Image:
     """
     Expands the given image with the specified margins and feathering.
 
@@ -349,7 +344,7 @@ def replace_subject_v1(base_img: Image.Image, dest_img: Image.Image, mask_img: I
     final = Image.composite(blended, dest_img, subject_mask)
     return final
 
-def replace_subject_v2(base_img, dest_img, mask_img, blur_size=6, grow_size=-12, blend_size=0.5, brightness=1.0):
+def replace_subject_v2(base_img: Image.Image, dest_img: Image.Image, mask_img: Image.Image, blur_size:int=6, grow_size:int=-12, blend_size:float=0.5, brightness:float=1.0):
     base_img = pilgram.css.brightness(base_img, brightness)
 
     simple_mask = mask_blur(mask_grow(mask_img, -1), 1)
@@ -361,4 +356,4 @@ def replace_subject_v2(base_img, dest_img, mask_img, blur_size=6, grow_size=-12,
     result_base = image_blend(simple_base, result_base, blend_size)
     subject_mask = mask_blur(mask_grow(mask_img, grow_size), blur_size)
     final = Image.composite(result_base, dest_img, subject_mask)
-    return [subject_mask, dest_img, simple_base, colour_base, result_base, final]
+    return final

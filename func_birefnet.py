@@ -4,6 +4,7 @@ from torchvision import transforms
 from transformers import AutoModelForImageSegmentation
 from PIL import Image
 from func_image import refine_foreground
+from typing import List, Tuple
 
 
 def load_birefnet(repo, device: str = 'cuda'):
@@ -16,7 +17,7 @@ def load_birefnet(repo, device: str = 'cuda'):
     return birefnet
 
 
-def birefnet_remove_background(birefnet, images, resolution=(1024, 1024), device: str = 'cuda'):
+def birefnet_remove_background(birefnet, images, resolution=(1024, 1024), device: str = 'cuda') -> List[Tuple[Image.Image, Image.Image]]:
     items = []
     for idx_image, image_src in enumerate(images):
         if isinstance(image_src, str):
