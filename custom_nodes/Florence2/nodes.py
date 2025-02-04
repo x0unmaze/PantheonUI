@@ -1,15 +1,16 @@
-import torch
-import torchvision.transforms.functional as F
 import io
 import os
+import torch
+import torchvision.transforms.functional as F
 import matplotlib
 matplotlib.use('Agg')   
-import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from PIL import Image, ImageDraw, ImageColor, ImageFont
+import matplotlib.pyplot as plt
+
+import re
 import random
 import numpy as np
-import re
+from PIL import Image, ImageDraw, ImageColor, ImageFont
 from pathlib import Path
 
 #workaround for unnecessary flash_attn requirement
@@ -41,39 +42,30 @@ from transformers import AutoModelForCausalLM, AutoProcessor, set_seed
 class DownloadAndLoadFlorence2Model:
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {
-            "model": (
-                    [ 
-                    'microsoft/Florence-2-base',
-                    'microsoft/Florence-2-base-ft',
-                    'microsoft/Florence-2-large',
-                    'microsoft/Florence-2-large-ft',
-                    'HuggingFaceM4/Florence-2-DocVQA',
-                    'thwri/CogFlorence-2.1-Large',
-                    'thwri/CogFlorence-2.2-Large',
-                    'gokaygokay/Florence-2-SD3-Captioner',
-                    'gokaygokay/Florence-2-Flux-Large',
-                    'MiaoshouAI/Florence-2-base-PromptGen-v1.5',
-                    'MiaoshouAI/Florence-2-large-PromptGen-v1.5',
-                    'MiaoshouAI/Florence-2-base-PromptGen-v2.0',
-                    'MiaoshouAI/Florence-2-large-PromptGen-v2.0'
+        return {
+            "required": {
+                "model": (
+                    [
+                        'microsoft/Florence-2-base',
+                        'microsoft/Florence-2-base-ft',
+                        'microsoft/Florence-2-large',
+                        'microsoft/Florence-2-large-ft',
+                        'HuggingFaceM4/Florence-2-DocVQA',
+                        'thwri/CogFlorence-2.1-Large',
+                        'thwri/CogFlorence-2.2-Large',
+                        'gokaygokay/Florence-2-SD3-Captioner',
+                        'gokaygokay/Florence-2-Flux-Large',
+                        'MiaoshouAI/Florence-2-base-PromptGen-v1.5',
+                        'MiaoshouAI/Florence-2-large-PromptGen-v1.5',
+                        'MiaoshouAI/Florence-2-base-PromptGen-v2.0',
+                        'MiaoshouAI/Florence-2-large-PromptGen-v2.0',
                     ],
-                    {
-                    "default": 'microsoft/Florence-2-base'
-                    }),
-            "precision": ([ 'fp16','bf16','fp32'],
-                    {
-                    "default": 'fp16'
-                    }),
-            "attention": (
-                    [ 'flash_attention_2', 'sdpa', 'eager'],
-                    {
-                    "default": 'sdpa'
-                    }),
+                    {"default": 'microsoft/Florence-2-base'},
+                ),
+                "precision": (['fp16','bf16','fp32'],{"default":'fp16'}),
+                "attention": (['flash_attention_2','sdpa','eager'],{"default":'sdpa'}),
             },
-            "optional": {
-                "lora": ("PEFTLORA",),
-            }
+            "optional": {"lora": ("PEFTLORA",)}
         }
 
     RETURN_TYPES = ("FL2MODEL",)
@@ -92,10 +84,8 @@ class DownloadAndLoadFlorence2Model:
         if not os.path.exists(model_path):
             print(f"Downloading Florence2 model to: {model_path}")
             from huggingface_hub import snapshot_download
-            snapshot_download(repo_id=model,
-                            local_dir=model_path,
-                            local_dir_use_symlinks=False)
-            
+            snapshot_download(repo_id=model, local_dir=model_path, local_dir_use_symlinks=False)
+
         print(f"Florence2 using {attention} for attention")
         with patch("transformers.dynamic_module_utils.get_imports", fixed_get_imports): #workaround for unnecessary flash_attn requirement
             model = AutoModelForCausalLM.from_pretrained(model_path, attn_implementation=attention, device_map=device, torch_dtype=dtype,trust_remote_code=True)
@@ -109,22 +99,18 @@ class DownloadAndLoadFlorence2Model:
         florence2_model = {
             'model': model, 
             'processor': processor,
-            'dtype': dtype
-            }
+            'dtype': dtype,
+        }
 
         return (florence2_model,)
     
 class DownloadAndLoadFlorence2Lora:
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {
-            "model": (
-                    [ 
-                    'NikshepShetty/Florence-2-pixelprose',
-                    ],
-                  ),            
+        return {
+            "required": {
+            "model": (['NikshepShetty/Florence-2-pixelprose'],),
             },
-          
         }
 
     RETURN_TYPES = ("PEFTLORA",)
@@ -139,27 +125,20 @@ class DownloadAndLoadFlorence2Lora:
         if not os.path.exists(model_path):
             print(f"Downloading Florence2 lora model to: {model_path}")
             from huggingface_hub import snapshot_download
-            snapshot_download(repo_id=model,
-                            local_dir=model_path,
-                            local_dir_use_symlinks=False)
+            snapshot_download(repo_id=model, local_dir=model_path, local_dir_use_symlinks=False)
         return (model_path,)
     
 class Florence2ModelLoader:
 
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {
-            "model": ([item.name for item in Path(folder_paths.models_dir, "LLM").iterdir() if item.is_dir()], {"tooltip": "models are expected to be in Pantheon/models/LLM folder"}),
-            "precision": (['fp16','bf16','fp32'],),
-            "attention": (
-                    [ 'flash_attention_2', 'sdpa', 'eager'],
-                    {
-                    "default": 'sdpa'
-                    }),
+        return {
+            "required": {
+                "model": ([item.name for item in Path(folder_paths.models_dir, "LLM").iterdir() if item.is_dir()], {"tooltip": "models are expected to be in PantheonUI/models/LLM folder"}),
+                "precision": (['fp16','bf16','fp32'],),
+                "attention": (['flash_attention_2','sdpa','eager'],{"default": 'sdpa'}),
             },
-            "optional": {
-                "lora": ("PEFTLORA",),
-            }
+            "optional": {"lora": ("PEFTLORA",),}
         }
 
     RETURN_TYPES = ("FL2MODEL",)
@@ -181,12 +160,12 @@ class Florence2ModelLoader:
             from peft import PeftModel
             adapter_name = lora
             model = PeftModel.from_pretrained(model, adapter_name, trust_remote_code=True)
-        
+
         florence2_model = {
             'model': model, 
             'processor': processor,
-            'dtype': dtype
-            }
+            'dtype': dtype,
+        }
    
         return (florence2_model,)
     
@@ -200,23 +179,23 @@ class Florence2Run:
                 "text_input": ("STRING", {"default": "", "multiline": True}),
                 "task": (
                     [ 
-                    'region_caption',
-                    'dense_region_caption',
-                    'region_proposal',
-                    'caption',
-                    'detailed_caption',
-                    'more_detailed_caption',
-                    'caption_to_phrase_grounding',
-                    'referring_expression_segmentation',
-                    'ocr',
-                    'ocr_with_region',
-                    'docvqa',
-                    'prompt_gen_tags',
-                    'prompt_gen_mixed_caption',
-                    'prompt_gen_analyze',
-                    'prompt_gen_mixed_caption_plus',
+                        'region_caption',
+                        'dense_region_caption',
+                        'region_proposal',
+                        'caption',
+                        'detailed_caption',
+                        'more_detailed_caption',
+                        'caption_to_phrase_grounding',
+                        'referring_expression_segmentation',
+                        'ocr',
+                        'ocr_with_region',
+                        'docvqa',
+                        'prompt_gen_tags',
+                        'prompt_gen_mixed_caption',
+                        'prompt_gen_analyze',
+                        'prompt_gen_mixed_caption_plus',
                     ],
-                   ),
+                ),
                 "fill_mask": ("BOOLEAN", {"default": True}),
             },
             "optional": {
@@ -228,7 +207,7 @@ class Florence2Run:
                 "seed": ("INT", {"default": 1, "min": 1, "max": 0xffffffffffffffff}),
             }
         }
-    
+
     RETURN_TYPES = ("IMAGE", "MASK", "STRING", "JSON")
     RETURN_NAMES =("image", "mask", "caption", "data") 
     FUNCTION = "encode"
@@ -245,8 +224,7 @@ class Florence2Run:
         # Ensure the hashed seed is within the acceptable range for set_seed
         return hashed_seed % (2**32)
 
-    def encode(self, image, text_input, florence2_model, task, fill_mask, keep_model_loaded=False, 
-            num_beams=3, max_new_tokens=1024, do_sample=True, output_mask_select="", seed=None):
+    def encode(self, image, text_input, florence2_model, task, fill_mask=True, keep_model_loaded=False, num_beams=3, max_new_tokens=1024, do_sample=True, output_mask_select="", seed=None):
         device = mm.get_torch_device()
         _, height, width, _ = image.shape
         offload_device = mm.unet_offload_device()
@@ -256,12 +234,11 @@ class Florence2Run:
         model = florence2_model['model']
         dtype = florence2_model['dtype']
         model.to(device)
-        
+
         if seed:
             set_seed(self.hash_seed(seed))
 
-        colormap = ['blue','orange','green','purple','brown','pink','olive','cyan','red',
-                    'lime','indigo','violet','aqua','magenta','gold','tan','skyblue']
+        colormap = ['blue','orange','green','purple','brown','pink','olive','cyan','red', 'lime','indigo','violet','aqua','magenta','gold','tan','skyblue']
 
         prompts = {
             'region_caption': '<OD>',
@@ -425,12 +402,10 @@ class Florence2Run:
                 annotated_image_tensor = F.to_tensor(annotated_image_pil)
                 out_tensor = annotated_image_tensor[:3, :, :].unsqueeze(0).permute(0, 2, 3, 1).cpu().float()
                 out.append(out_tensor)
-               
-                out_data.append(bboxes)
 
-                
+                out_data.append(bboxes)
                 pbar.update(1)
-    
+
                 plt.close(fig)
 
             elif task == 'referring_expression_segmentation':
@@ -509,11 +484,7 @@ class Florence2Run:
                     else:
                         draw.polygon(new_box, outline=color, width=3)
                     
-                    draw.text((new_box[0]+8, new_box[1]+2),
-                              "{}".format(label),
-                              align="right",
-                              font=font,
-                              fill=color)
+                    draw.text((new_box[0]+8, new_box[1]+2), "{}".format(label), align="right", font=font, fill=color)
                     
                     # Draw the mask
                     mask_draw.polygon(new_box, outline="white", fill="white")

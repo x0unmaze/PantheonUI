@@ -9,42 +9,7 @@ from controlnet_aux.processor import Processor as ControlnetAux
 from func_download import auto_download
 from func_image import load_image, pil2tensor, tensor2pil
 from PIL import Image
-
-PREPROCESSORS = [
-    'canny',
-    'depth_leres',
-    'depth_leres++',
-    'depth_midas',
-    'depth_zoe',
-    'dwpose',
-    'lineart_anime',
-    'lineart_coarse',
-    'lineart_realistic',
-    'mediapipe_face',
-    'mlsd',
-    'normal_bae',
-    'openpose',
-    'openpose_face',
-    'openpose_faceonly',
-    'openpose_full',
-    'openpose_hand',
-    'scribble_hed',
-    'scribble_hedsafe',
-    'scribble_pidinet',
-    'scribble_pidsafe',
-    'shuffle',
-    'softedge_hed',
-    'softedge_hedsafe',
-    'softedge_pidinet',
-    'softedge_pidsafe',
-]
-
-CONTROLNET_LINKS = {
-    'control_v11p_sd15_inpaint.safetensors': 'https://huggingface.co/lllyasviel/control_v11p_sd15_inpaint/resolve/main/diffusion_pytorch_model.safetensors',
-    'control_v11p_sd15_lineart.safetensors': 'https://huggingface.co/lllyasviel/control_v11p_sd15_lineart/resolve/main/diffusion_pytorch_model.safetensors',
-    'control_v11f1p_sd15_depth.safetensors': 'https://huggingface.co/lllyasviel/control_v11f1p_sd15_depth/resolve/main/diffusion_pytorch_model.safetensors',
-    'control_v11p_sd15_openpose.safetensors': 'https://huggingface.co/lllyasviel/control_v11p_sd15_openpose/resolve/main/diffusion_pytorch_model.safetensors',
-}
+from constants import CONTROLNET_LINKS
 
 def create_controlnet_images(processor: str, images: List, device='cuda'):
     model = None
@@ -69,8 +34,11 @@ class SD15Container:
         self.unet_f = None
         self.clip = None
         self.clip_f = None
+        self.vae = None
         self.cnet = {}
         self.civitai_token = civitai_token
+        self.ldm_path = ''
+        self.vae_path = ''
 
 
     def load_checkpoint(self, ldm_path: str, vae_path: str = None):
@@ -78,17 +46,25 @@ class SD15Container:
         VAELoader = nodes.VAELoader()
 
         with torch.inference_mode():
-            print('Loading Checkpoint, VAE, CLIP ...')
-            ckpt_dir = os.path.join(folders.models_dir, 'checkpoints')
-            ckpt_path = auto_download(ldm_path, ckpt_dir, self.civitai_token)
-            ckpt_name = os.path.basename(ckpt_path)
-            self.unet, self.clip, self.vae = CheckpointLoader.load_checkpoint(ckpt_name)
-            if vae_path:
+            if self.ldm_path != ldm_path:
+                ckpt_dir = os.path.join(folders.models_dir, 'checkpoints')
+                ckpt_path = auto_download(ldm_path, ckpt_dir, self.civitai_token)
+                ckpt_name = os.path.basename(ckpt_path)
+                self.unet, self.clip, vae_b = CheckpointLoader.load_checkpoint(ckpt_name)
+                if not vae_path:
+                    self.vae = vae_b
+                    self.vae_path = vae_path
+                self.ldm_path = ldm_path
+                print(f'Loaded LDM: {ldm_path}')
+
+            if self.vae_path != vae_path:
                 vae_dir = os.path.join(folders.models_dir, 'vae')
                 vae_path = auto_download(vae_path, vae_dir, self.civitai_token)
                 self.vae = VAELoader.load_vae(os.path.basename(vae_path))[0]
-            self.unet_f, self.clip_f = self.unet, self.clip
+                self.vae_path = vae_path
+                print(f'Loaded VAE: {vae_path}')
 
+            self.unet_f, self.clip_f = self.unet, self.clip
         return self.unet, self.clip, self.vae
 
     def load_loras(self, loras: List[Tuple[str, float]]):
@@ -151,6 +127,7 @@ class SD15Container:
         negative_prompt: str,
         base_image: Union[str, Image.Image] = None,
         mask_image: Union[str, Image.Image] = None,
+        lora: List[Tuple[str, float]] = [],
         controlnet: List[Tuple] = [],
         width: int = 512,
         height: int = 512,
@@ -168,14 +145,14 @@ class SD15Container:
         CLIPTextEncode = nodes.CLIPTextEncode()
         EmptyLatentImage = nodes.EmptyLatentImage()
         LatentUpscaleBy = nodes.LatentUpscaleBy()
-        LoadImage = nodes.LoadImage()
-        LoadImageMask = nodes.LoadImageMask()
         InpaintCondition = nodes.InpaintModelConditioning()
         VAEDecode = nodes.VAEDecode()
         VAEEncode = nodes.VAEEncode()
 
         pos_cond = CLIPTextEncode.encode(self.clip_f, positive_prompt)[0]
         neg_cond = CLIPTextEncode.encode(self.clip_f, negative_prompt)[0]
+
+        self.load_loras(lora)
 
         for item in controlnet:
             pos_cond, neg_cond = self.apply_controlnet(pos_cond,neg_cond, item[0], item[1], item[2], item[3], item[4])
