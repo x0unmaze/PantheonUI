@@ -1,0 +1,14 @@
+[project]
+name = "pantheonui-ic-light"
+description = "PantheonUI native nodes for IC-Light"
+version = "1.0.1"
+license = { text = "Apache License 2.0" }
+dependencies = ["opencv-python"]
+
+[project.urls]
+Repository = "https://github.com/kijai/PantheonUI-IC-Light"
+
+[tool.pantheon]
+PublisherId = "kijai"
+DisplayName = "PantheonUI-IC-Light"
+Icon = ""
