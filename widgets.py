@@ -52,7 +52,7 @@ class ControlnetInput:
         self.preprocessor = w.Dropdown(description='preprocessor', options=['none']+preprocessors, layout={'width': 'inherit'})
         self.model = w.Dropdown(description='model', options=models, layout={'width': 'inherit'})
         self.strength = w.FloatSlider(description='strength', value=1.0, min=0.0, max=1.0, step=0.01, layout={'width': 'inherit'})
-        self.start = w.FloatSlider(description='start', value=1.0, min=0.0, max=1.0, step=0.01, layout={'width': 'inherit'})
+        self.start = w.FloatSlider(description='start', value=0.0, min=0.0, max=1.0, step=0.01, layout={'width': 'inherit'})
         self.end = w.FloatSlider(description='end', value=1.0, min=0.0, max=1.0, step=0.01, layout={'width': 'inherit'})
 
     def values(self):
