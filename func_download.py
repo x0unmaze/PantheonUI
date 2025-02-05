@@ -10,7 +10,7 @@ CHUNK_SIZE = 1638400
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
 
 
-def download_from_civitai(file_url: str, dest_dir: str, token: str):
+def download_from_civitai(file_url: str, dest_dir: str, token: str, custom_basename: str = None):
     headers = {
         'Authorization': f'Bearer {token}',
         'User-Agent': USER_AGENT,
@@ -56,7 +56,7 @@ def download_from_civitai(file_url: str, dest_dir: str, token: str):
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir, exist_ok=True)
 
-    output_file = os.path.join(dest_dir, filename)
+    output_file = os.path.join(dest_dir, (custom_basename or filename))
 
     if os.path.isfile(output_file):
         return output_file
@@ -108,7 +108,7 @@ def auto_download(path: str, dest_dir: str, civitai_token: str = None, custom_ba
     os.makedirs(dest_dir, exist_ok=True)
 
     if path.startswith('https://civitai.com') and civitai_token:
-        path = download_from_civitai(path, dest_dir, civitai_token)
+        path = download_from_civitai(path, dest_dir, civitai_token, custom_basename)
     elif path.startswith('https://huggingface.co'):
         name = os.path.basename(path).replace('?download=true', '')
         dest_path = os.path.join(dest_dir, (custom_basename or name))

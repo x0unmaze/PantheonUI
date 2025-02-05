@@ -14,3 +14,4 @@ torchvision
 transformers
 xformers
 peft
+ipywidgets

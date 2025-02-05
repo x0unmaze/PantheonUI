@@ -16,6 +16,7 @@ def create_controlnet_images(processor: str, images: List, device='cuda'):
     if processor and processor != 'none':
         model = ControlnetAux(processor)
         if hasattr(model, 'to') and callable(model.to):
+            print(f'{processor} is to {device}')
             model.to(device)
 
     result = []
@@ -68,14 +69,14 @@ class SD15Container:
                     self.vae = vae_b
                     self.vae_path = vae_path
                 self.ldm_path = ldm_path
-                print(f'Loaded LDM: {ldm_path}')
+                print(f'Loaded LDM: {ckpt_path}')
 
             if self.vae_path != vae_path:
                 vae_dir = os.path.join(folders.models_dir, 'vae')
-                vae_path = auto_download(vae_path, vae_dir, self.civitai_token)
+                ckpt_path = auto_download(vae_path, vae_dir, self.civitai_token)
                 self.vae = VAELoader.load_vae(os.path.basename(vae_path))[0]
                 self.vae_path = vae_path
-                print(f'Loaded VAE: {vae_path}')
+                print(f'Loaded VAE: {ckpt_path}')
 
             self.unet_f, self.clip_f = self.unet, self.clip
         return self.unet, self.clip, self.vae
