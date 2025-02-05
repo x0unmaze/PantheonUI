@@ -130,10 +130,7 @@ class LoraInput:
 
 class LoraGroupInput:
     def __init__(self, length=3):
-        self.groups = []
-        for i in range(length):
-            lora = LoraInput()
-            self.groups.append(lora)
+        self.groups = [LoraInput() for i in range(length)]
     
     def values(self):
         return [item.values() for item in self.groups]
@@ -145,9 +142,9 @@ class LoraGroupInput:
         )
 
 class SimpleGenerator:
-    def __init__(self):
-        self.ldm_path = w.Text(description='ldm_path',layout={'width':'50%'})
-        self.vae_path = w.Text(description='vae_path',layout={'width':'50%'})
+    def __init__(self, ldm_paths=[], vae_paths=[]):
+        self.ldm_path = w.Combobox(description='ldm_path',options=ldm_paths,layout={'width':'50%'})
+        self.vae_path = w.Combobox(description='vae_path',options=vae_paths,layout={'width':'50%'})
         self.controlnet_panel = ControlnetGroupInput()
         self.config_panel = ConfigInput()
         self.condition_panel = ConditionInput()
