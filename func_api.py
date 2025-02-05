@@ -28,6 +28,19 @@ def create_controlnet_images(processor: str, images: List, device='cuda'):
     del model
     return result
 
+def preparse_controlnet_inputs(model: str, base_image: str, mask_image: str = None, preprocessor: str='none', strength: float = 1.0, start: float = 0.0, end: float = 1.0):
+    c_img = load_image(base_image).convert('RGB')
+
+    if preprocessor:
+        c_img = create_controlnet_images(preprocessor, [base_image], 'cuda')[0]
+
+    if mask_image:
+        b_img = Image.new('RGB', c_img.size) #black background
+        m_img = Image.open(mask_image).convert('L')
+        c_img = Image.composite(c_img, b_img, m_img)
+
+    return (model, c_img, strength, start, end)
+
 class SD15Container:
     def __init__(self, civitai_token: str = ''):
         self.unet = None
@@ -182,7 +195,7 @@ class SD15Container:
                 positive=pos_cond,
                 negative=neg_cond,
                 latent_image=latent_image,
-                denoise=1.0,
+                denoise=denoise,
             )[0]
 
             if hires_fix:
@@ -191,14 +204,14 @@ class SD15Container:
                 sample = KSampler.sample(
                     self.unet_f,
                     seed=seed_it,
-                    steps=int(steps * denoise),
+                    steps=int(steps * 0.5),
                     cfg=cfg,
                     sampler_name=sampler_name,
                     scheduler=scheduler,
                     positive=pos_cond,
                     negative=neg_cond,
                     latent_image=latent_image,
-                    denoise=denoise,
+                    denoise=0.5,
                 )[0]
 
             decoded = VAEDecode.decode(self.vae, sample)[0].detach()[0]
