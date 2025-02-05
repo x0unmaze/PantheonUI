@@ -15,9 +15,9 @@ def create_controlnet_images(processor: str, images: List, device='cuda'):
     model = None
     if processor and processor != 'none':
         model = ControlnetAux(processor)
-        if hasattr(model, 'to') and callable(model.to):
+        if hasattr(model.processor, 'to') and callable(model.processor.to):
             print(f'{processor} is to {device}')
-            model.to(device)
+            model.processor.to(device)
 
     result = []
     for image in images:
