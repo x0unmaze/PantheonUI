@@ -168,12 +168,12 @@ class LoraGroupInput:
 
 
 class SimpleGenerator:
-    def __init__(self, ldm_paths=[], vae_paths=[], lora_paths=[], submit_handler=None):
+    def __init__(self, ldm_paths=[], vae_paths=[], lora_paths=[], controlnet_models=[], controlet_preprocessors=[], positive='', negative='', submit_handler=None):
         self.ldm_path = w.Combobox(description='ldm_path', options=ldm_paths, layout={'width': '50%'})
         self.vae_path = w.Combobox(description='vae_path', options=vae_paths, layout={'width': '50%'})
-        self.controlnet_panel = ControlnetGroupInput()
+        self.controlnet_panel = ControlnetGroupInput(controlet_preprocessors, controlnet_models)
         self.config_panel = ConfigInput()
-        self.condition_panel = ConditionInput()
+        self.condition_panel = ConditionInput(positive, negative)
         self.lora_panel = LoraGroupInput(models=lora_paths)
         self.submit_handler = submit_handler
         self.submit_btn = w.Button(description='submit', button_style='primary')
