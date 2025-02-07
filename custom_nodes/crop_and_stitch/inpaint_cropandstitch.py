@@ -197,9 +197,9 @@ class InpaintCrop:
         result_mask = torch.stack(results_mask, dim=0)
 
         return result_stitch, result_image, result_mask
-       
+
     # Parts of this function are from KJNodes: https://github.com/kijai/PantheonUI-KJNodes
-    def inpaint_crop_single_image(self, image, mask, context_expand_pixels, context_expand_factor, fill_mask_holes, blur_mask_pixels, invert_mask, blend_pixels, mode, rescale_algorithm, force_width, force_height, rescale_factor, padding, min_width, min_height, max_width, max_height, optional_context_mask=None):
+    def inpaint_crop_single_image(self, image, mask, context_expand_pixels=20, context_expand_factor=1.0, fill_mask_holes=True, blur_mask_pixels=16, invert_mask=False, blend_pixels=16, mode='ranged size', rescale_algorithm='bicubic', force_width=1024, force_height=1024, rescale_factor=1.0, padding=32, min_width=512, min_height=512, max_width=768, max_height=768, optional_context_mask=None):
         #Validate or initialize mask
         if mask.shape[1] != image.shape[1] or mask.shape[2] != image.shape[2]:
             non_zero_indices = torch.nonzero(mask[0], as_tuple=True)
@@ -563,7 +563,7 @@ class InpaintStitch:
 
         return (result_batch,)
 
-    def inpaint_stitch_single_image(self, stitch, inpainted_image, rescale_algorithm):
+    def inpaint_stitch_single_image(self, stitch, inpainted_image, rescale_algorithm = 'bislerp'):
         original_image = stitch['original_image']
         cropped_mask_blend = stitch['cropped_mask_blend']
         x = stitch['x']
