@@ -6,10 +6,8 @@ import folder_paths as folders
 
 from typing import List, Tuple, Union
 from controlnet_aux.processor import Processor as ControlnetAux
-from func_download import auto_download
 from func_image import load_image, pil2tensor, tensor2pil
 from PIL import Image
-from constants import CONTROLNET_LINKS
 
 def create_controlnet_images(processor: str, images: List, device='cuda'):
     model = None
@@ -42,7 +40,7 @@ def preparse_controlnet_inputs(model: str, base_image: str, mask_image: str = No
 
     return (model, c_img, strength, start, end)
 
-class SD15Container:
+class SDContainer:
     def __init__(self, civitai_token: str = ''):
         self.unet = None
         self.unet_f = None
@@ -51,76 +49,67 @@ class SD15Container:
         self.vae = None
         self.cnet = {}
         self.civitai_token = civitai_token
-        self.ldm_path = ''
-        self.vae_path = ''
+        self.ldm_name = ''
+        self.vae_name = ''
 
 
-    def load_checkpoint(self, ldm_path: str, vae_path: str = None):
+    def load_checkpoint(self, ldm_name: str, vae_name: str = None):
         CheckpointLoader = nodes.CheckpointLoaderSimple()
         VAELoader = nodes.VAELoader()
 
         with torch.inference_mode():
-            if self.ldm_path != ldm_path:
-                ckpt_dir = os.path.join(folders.models_dir, 'checkpoints')
-                ckpt_path = auto_download(ldm_path, ckpt_dir, self.civitai_token)
-                ckpt_name = os.path.basename(ckpt_path)
-                self.unet, self.clip, vae_b = CheckpointLoader.load_checkpoint(ckpt_name)
-                if not vae_path:
+            if self.ldm_name != ldm_name:
+                self.unet, self.clip, vae_b = CheckpointLoader.load_checkpoint(ldm_name)
+                if not vae_name:
                     self.vae = vae_b
-                    self.vae_path = vae_path
-                self.ldm_path = ldm_path
-                print(f'Loaded LDM: {ckpt_path}')
+                    self.vae_name = vae_name
+                self.ldm_name = ldm_name
+                print(f'LDM {ldm_name} is loaded;')
 
-            if self.vae_path != vae_path:
-                vae_dir = os.path.join(folders.models_dir, 'vae')
-                ckpt_path = auto_download(vae_path, vae_dir, self.civitai_token)
-                self.vae = VAELoader.load_vae(os.path.basename(vae_path))[0]
-                self.vae_path = vae_path
-                print(f'Loaded VAE: {ckpt_path}')
+            if self.vae_name != vae_name:
+                self.vae = VAELoader.load_vae(vae_name)[0]
+                self.vae_name = vae_name
+                print(f'VAE {vae_name} is loaded;')
 
             self.unet_f, self.clip_f = self.unet, self.clip
         return self.unet, self.clip, self.vae
 
     def load_loras(self, loras: List[Tuple[str, float]]):
         self.unet_f, self.clip_f = self.unet, self.clip
-
         LoraLoader = nodes.LoraLoader()
-        lora_dir = os.path.join(folders.models_dir, 'loras')
 
-        for index, item in enumerate(loras):
-            path, weight = item
-            if not path:
+        for item in loras:
+            name, weight = item
+            if not name:
                 continue
 
-            path = auto_download(path, lora_dir, self.civitai_token)
-
-            if not os.path.isfile(path):
-                print(f'LoRA {path} is not found; pass')
+            if not folders.get_full_path('loras', name):
+                print(f'LoRA {name} is not found; passed')
                 continue
 
             with torch.inference_mode():
                 self.unet_f, self.clip_f = LoraLoader.load_lora(
                     self.unet_f,
                     self.clip_f,
-                    os.path.basename(path),
+                    name,
                     weight,
                     weight,
                 )
-                print(f'LoRA {path} is loaded; weight: {weight}')
+                print(f'LoRA {name} is loaded; weight: {weight}')
 
         return self.unet_f, self.clip_f
-    
+
     def apply_controlnet(self, pos_cond, neg_cond, controlnet: str, image: Union[str, Image.Image], strength: float = 1.0, start: float = 0.0, end: float = 1.0):
+        if not folders.get_full_path('controlnet', controlnet):
+            print(f'Controlnet {controlnet} is not found; passed')
+            return pos_cond, neg_cond
+
         ControlNetLoader = nodes.ControlNetLoader()
         ControlNetSetter = nodes.ControlNetApplyAdvanced()
 
         if controlnet not in self.cnet:
-            cnet_dir = os.path.join(folders.models_dir, 'controlnet')
-            link = CONTROLNET_LINKS.get(controlnet, '')
-            name = os.path.basename(controlnet) if link else None
-            path = auto_download((link or path), cnet_dir, self.civitai_token, name)
-            self.cnet[controlnet] = ControlNetLoader.load_controlnet(name)[0]
-            print(f'Controlnet {path} is first loaded')
+            self.cnet[controlnet] = ControlNetLoader.load_controlnet(controlnet)[0]
+            print(f'Controlnet {controlnet} is loaded;')
 
         image = pil2tensor(load_image(image))
         pos_cond, neg_cond = ControlNetSetter.apply_controlnet(
@@ -132,6 +121,7 @@ class SD15Container:
             float(start),
             float(end),
         )
+        print(f'Controlnet {controlnet} is append;')
         return pos_cond, neg_cond
 
     @torch.inference_mode()
