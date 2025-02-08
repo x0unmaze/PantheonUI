@@ -35,10 +35,3 @@ SAMPLER_NAMES = [
 ]
 
 SCHEDULER_NAMES = ["normal", "karras", "exponential", "sgm_uniform", "simple", "ddim_uniform", "beta", "linear_quadratic", "kl_optimal"]
-
-CONTROLNET_LINKS = {
-    'control_v11p_sd15_inpaint.safetensors': 'https://huggingface.co/lllyasviel/control_v11p_sd15_inpaint/resolve/main/diffusion_pytorch_model.safetensors',
-    'control_v11p_sd15_lineart.safetensors': 'https://huggingface.co/lllyasviel/control_v11p_sd15_lineart/resolve/main/diffusion_pytorch_model.safetensors',
-    'control_v11f1p_sd15_depth.safetensors': 'https://huggingface.co/lllyasviel/control_v11f1p_sd15_depth/resolve/main/diffusion_pytorch_model.safetensors',
-    'control_v11p_sd15_openpose.safetensors': 'https://huggingface.co/lllyasviel/control_v11p_sd15_openpose/resolve/main/diffusion_pytorch_model.safetensors',
-}
