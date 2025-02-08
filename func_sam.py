@@ -111,7 +111,7 @@ class SAM:
         for detection in detections:
             mask = Image.fromarray(detection['mask']).convert('L')
             label = detection['label'].replace('.', '').strip()
-            old_mask = masks.get(label, Image.new('L', mask.size, (0, 0, 0)))
+            old_mask = masks.get(label, Image.new('RGB', mask.size, (0, 0, 0)))
             mask = Image.composite(mask, old_mask, mask)
             masks[label] = mask
         annotated = Image.fromarray(self.annotate(image, detections))
