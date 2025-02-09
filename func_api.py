@@ -158,10 +158,8 @@ class SDContainer:
         pos_cond = CLIPTextEncode.encode(self.clip_f, positive_prompt)[0]
         neg_cond = CLIPTextEncode.encode(self.clip_f, negative_prompt)[0]
 
-        self.load_loras(lora)
-
         stitch = None
-        
+
         if not base_image and not mask_image:
             task = 'txt2img'
             latent_image = EmptyLatentImage.generate(width, height)[0]
@@ -178,9 +176,11 @@ class SDContainer:
             base_image = pil2tensor(load_image(base_image))
             latent_image = VAEEncode.encode(self.vae, base_image)[0]
 
+        self.load_loras(lora)
         for item in controlnet:
             pos_cond, neg_cond = self.apply_controlnet(pos_cond,neg_cond, item[0], item[1], item[2], item[3], item[4])
 
+        print('task:', task)
         images = []
         for i in range(batch_size):
             seed_it = seed if seed > 1 else random.randint(0, 18446744073709552000)
@@ -215,9 +215,9 @@ class SDContainer:
                     denoise=0.5,
                 )[0]
 
-            decoded = VAEDecode.decode(self.vae, sample)[0].detach()[0]
+            decoded = VAEDecode.decode(self.vae, sample)[0].detach()
 
-            if task=='inpaint' and use_stitch:
+            if task == 'inpaint' and use_stitch:
                 stitcher = InpaintStitch()
                 decoded = stitcher.inpaint_stitch_single_image(stitch, decoded)[0]
 
