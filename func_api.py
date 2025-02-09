@@ -160,22 +160,26 @@ class SDContainer:
 
         self.load_loras(lora)
 
-        for item in controlnet:
-            pos_cond, neg_cond = self.apply_controlnet(pos_cond,neg_cond, item[0], item[1], item[2], item[3], item[4])
-
-        latent_image = EmptyLatentImage.generate(width, height)[0]
         stitch = None
         
-        if base_image and not mask_image:
-            base_image = pil2tensor(load_image(base_image))
-            latent_image = VAEEncode.encode(self.vae, base_image)[0]
+        if not base_image and not mask_image:
+            task = 'txt2img'
+            latent_image = EmptyLatentImage.generate(width, height)[0]
         elif base_image and mask_image:
+            task = 'inpaint'
             mask_image = pil2tensor(load_image(mask_image).convert('L'))
             base_image = pil2tensor(load_image(base_image))
             if use_stitch:
                 cropper = InpaintCrop()
                 stitch, base_image, mask_image = cropper.inpaint_crop_single_image(base_image, mask_image)
             pos_cond, neg_cond, latent_image = InpaintCondition.encode(pos_cond, neg_cond, base_image, self.vae, mask_image)
+        else:
+            task = 'img2img'
+            base_image = pil2tensor(load_image(base_image))
+            latent_image = VAEEncode.encode(self.vae, base_image)[0]
+
+        for item in controlnet:
+            pos_cond, neg_cond = self.apply_controlnet(pos_cond,neg_cond, item[0], item[1], item[2], item[3], item[4])
 
         images = []
         for i in range(batch_size):
@@ -213,7 +217,7 @@ class SDContainer:
 
             decoded = VAEDecode.decode(self.vae, sample)[0].detach()[0]
 
-            if base_image and mask_image and stitch:
+            if task=='inpaint' and use_stitch:
                 stitcher = InpaintStitch()
                 decoded = stitcher.inpaint_stitch_single_image(stitch, decoded)[0]
 
