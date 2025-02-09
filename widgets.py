@@ -1,5 +1,5 @@
 import ipywidgets.widgets as w
-from constants import PREPROCESSORS, CONTROLNET_LINKS, SAMPLER_NAMES, SCHEDULER_NAMES
+from constants import PREPROCESSORS, SAMPLER_NAMES, SCHEDULER_NAMES
 
 
 class ConfigInput:
