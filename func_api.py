@@ -6,7 +6,7 @@ import folder_paths as folders
 
 from typing import List, Tuple, Union
 from controlnet_aux.processor import Processor as ControlnetAux
-from func_image import load_image, pil2tensor, tensor2pil
+from func_image import load_image, mask_grow, pil2tensor, tensor2pil
 from PIL import Image
 from custom_nodes.crop_and_stitch.inpaint_cropandstitch import InpaintCrop, InpaintStitch
 
@@ -132,6 +132,9 @@ class SDContainer:
         negative_prompt: str,
         base_image: Union[str, Image.Image] = None,
         mask_image: Union[str, Image.Image] = None,
+        mask_grow_size: int = 0,
+        mask_blur_size: int = 16,
+        use_mask_invert: bool = False,
         use_stitch: bool = False,
         lora: List[Tuple[str, float]] = [],
         controlnet: List[Tuple] = [],
@@ -165,11 +168,11 @@ class SDContainer:
             latent_image = EmptyLatentImage.generate(width, height)[0]
         elif base_image and mask_image:
             task = 'inpaint'
-            mask_image = pil2tensor(load_image(mask_image).convert('L'))
+            mask_image = pil2tensor(mask_grow(load_image(mask_image).convert('L'), mask_grow_size))
             base_image = pil2tensor(load_image(base_image))
             if use_stitch:
                 cropper = InpaintCrop()
-                stitch, base_image, mask_image = cropper.inpaint_crop_single_image(base_image, mask_image)
+                stitch, base_image, mask_image = cropper.inpaint_crop_single_image(base_image, mask_image, blur_mask_pixels=mask_blur_size, invert_mask=use_mask_invert)
             pos_cond, neg_cond, latent_image = InpaintCondition.encode(pos_cond, neg_cond, base_image, self.vae, mask_image)
         else:
             task = 'img2img'

@@ -118,6 +118,9 @@ class ConditionInput:
     def __init__(self, positive='', negative=''):
         self.base_image = w.Text(description='base_image', placeholder='/content/base.jpg', layout={'width': 'inherit'})
         self.mask_image = w.Text(description='mask_image', placeholder='/content/mask.jpg', layout={'width': 'inherit'})
+        self.mask_grow = w.IntSlider(description='mask_grow',value=0,min=-64,max=64,step=1,layout={'width': 'inherit'})
+        self.mask_blur = w.IntSlider(description='mask_blur',value=16,min=0,max=128,step=1,layout={'width': 'inherit'})
+        self.use_stitch = w.Checkbox(description='use_stitch',value=False,layout={'width': 'inherit'})
         self.expand = ExpandInput()
         self.positive_prompt = w.Textarea(description='positive', rows=5, value=positive, placeholder='positive prompt ...', layout={'width': 'inherit'})
         self.negative_prompt = w.Textarea(description='negative', rows=5, value=negative, placeholder='negative prompt ...', layout={'width': 'inherit'})
@@ -127,6 +130,9 @@ class ConditionInput:
             'base_image': self.base_image.value,
             'mask_image': self.mask_image.value,
             'expand': self.expand.values(),
+            'mask_grow': self.mask_grow.value,
+            'mask_blur': self.mask_blur.value,
+            'use_stitch': self.use_stitch.value,
             'positive_prompt': self.positive_prompt.value,
             'negative_prompt': self.negative_prompt.value,
         }
@@ -134,8 +140,9 @@ class ConditionInput:
     def widget(self, layout={}):
         return w.VBox([
             self.base_image,
-            self.mask_image,
             self.expand.widget({'width': '100%'}),
+            self.mask_image,
+            w.HBox([self.mask_grow, self.mask_blur, self.use_stitch], layout={'width':'100%'}),
             self.positive_prompt,
             self.negative_prompt,
         ], layout=layout)
