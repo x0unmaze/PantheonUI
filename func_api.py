@@ -7,6 +7,7 @@ import folder_paths as folders
 from typing import List, Tuple, Union
 from controlnet_aux.processor import Processor as ControlnetAux
 from func_image import load_image, mask_grow, pil2tensor, tensor2pil
+from pantheon.utils import common_upscale
 from PIL import Image
 from custom_nodes.crop_and_stitch.inpaint_cropandstitch import InpaintCrop, InpaintStitch
 
@@ -222,6 +223,9 @@ class SDContainer:
 
             if task == 'inpaint' and use_stitch:
                 stitcher = InpaintStitch()
+                if hires_fix:
+                    _, H, W, _ = base_image.shape
+                    decoded = common_upscale(decoded, W, H, 'bislerp', 'disable')
                 decoded = stitcher.inpaint_stitch_single_image(stitch, decoded)[0]
 
             images.append(tensor2pil(decoded))
