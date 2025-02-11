@@ -1,4 +1,4 @@
-# Florence2 in ComfyUI
+# Florence2 in PantheonUI
 
 > Florence-2 is an advanced vision foundation model that uses a prompt-based approach to handle a wide range of vision and vision-language tasks. 
 Florence-2 can interpret simple text prompts to perform tasks like captioning, object detection, and segmentation. 
@@ -11,20 +11,20 @@ This fork includes support for Document Visual Question Answering (DocVQA) using
 
 ## Installation:
 
-Clone this repository to 'ComfyUI/custom_nodes` folder.
+Clone this repository to 'PantheonUI/custom_nodes` folder.
 
 Install the dependencies in requirements.txt, transformers version 4.38.0 minimum is required:
 
 `pip install -r requirements.txt`
 
-or if you use portable (run this in ComfyUI_windows_portable -folder):
+or if you use portable (run this in PantheonUI_windows_portable -folder):
 
-`python_embeded\python.exe -m pip install -r ComfyUI\custom_nodes\ComfyUI-Florence2\requirements.txt`
+`python_embeded\python.exe -m pip install -r PantheonUI\custom_nodes\PantheonUI-Florence2\requirements.txt`
 
-![image](https://github.com/kijai/ComfyUI-Florence2/assets/40791699/4d537ac7-5490-470f-92f5-3007da7b9cc7)
-![image](https://github.com/kijai/ComfyUI-Florence2/assets/40791699/512357b7-39ee-43ee-bb63-7347b0a8d07d)
+![image](https://github.com/kijai/PantheonUI-Florence2/assets/40791699/4d537ac7-5490-470f-92f5-3007da7b9cc7)
+![image](https://github.com/kijai/PantheonUI-Florence2/assets/40791699/512357b7-39ee-43ee-bb63-7347b0a8d07d)
 
-Supports most Florence2 models, which can be automatically downloaded with the `DownloadAndLoadFlorence2Model` to `ComfyUI/models/LLM`:
+Supports most Florence2 models, which can be automatically downloaded with the `DownloadAndLoadFlorence2Model` to `PantheonUI/models/LLM`:
 
 Official:
 
@@ -57,7 +57,7 @@ https://huggingface.co/NikshepShetty/Florence-2-pixelpros
 ## Using DocVQA
 
 To use the DocVQA feature:
-1. Load a document image into ComfyUI.
+1. Load a document image into PantheonUI.
 2. Connect the image to the Florence2 DocVQA node.
 3. Input your question about the document.
 4. The node will output the answer based on the document's content.

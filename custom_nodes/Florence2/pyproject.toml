@@ -1,15 +1,15 @@
 [project]
-name = "comfyui-florence2"
+name = "pantheonui-florence2"
 description = "Nodes to use Florence2 VLM for image vision tasks: object detection, captioning, segmentation and ocr"
 version = "1.0.3"
 license = "MIT"
 dependencies = ["transformers>=4.38.0"]
 
 [project.urls]
-Repository = "https://github.com/kijai/ComfyUI-Florence2"
-#  Used by Comfy Registry https://comfyregistry.org
+Repository = "https://github.com/kijai/PantheonUI-Florence2"
+#  Used by Pantheon Registry https://pantheonregistry.org
 
-[tool.comfy]
+[tool.pantheon]
 PublisherId = "kijai"
-DisplayName = "ComfyUI-Florence2"
+DisplayName = "PantheonUI-Florence2"
 Icon = ""

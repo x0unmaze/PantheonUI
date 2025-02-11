@@ -73,7 +73,7 @@ class DownloadAndLoadFlorence2Model:
     FUNCTION = "loadmodel"
     CATEGORY = "Florence2"
 
-    def loadmodel(self, model, precision, attention, lora=None):
+    def loadmodel(self, model, precision='fp16', attention='sdpa', lora=None):
         device = mm.get_torch_device()
         offload_device = mm.unet_offload_device()
         dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[precision]
@@ -129,7 +129,6 @@ class DownloadAndLoadFlorence2Lora:
         return (model_path,)
     
 class Florence2ModelLoader:
-
     @classmethod
     def INPUT_TYPES(s):
         return {
