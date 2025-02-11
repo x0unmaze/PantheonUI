@@ -6,10 +6,10 @@ import folder_paths as folders
 
 from typing import List, Tuple, Union
 from controlnet_aux.processor import Processor as ControlnetAux
-from func_image import load_image, mask_grow, pil2tensor, tensor2pil
-from pantheon.utils import common_upscale
+from func_image import load_image, mask_grow, mask_blur, pil2tensor, tensor2pil
 from PIL import Image
 from custom_nodes.crop_and_stitch.inpaint_cropandstitch import InpaintCrop, InpaintStitch
+from pantheon_extras.nodes_mask import ImageCompositeMasked
 
 def create_controlnet_images(processor: str, images: List, device='cuda'):
     model = None
@@ -156,6 +156,7 @@ class SDContainer:
         EmptyLatentImage = nodes.EmptyLatentImage()
         LatentUpscaleBy = nodes.LatentUpscaleBy()
         InpaintCondition = nodes.InpaintModelConditioning()
+        ImageCompositer = ImageCompositeMasked()
         VAEDecode = nodes.VAEDecode()
         VAEEncode = nodes.VAEEncode()
 
@@ -169,12 +170,13 @@ class SDContainer:
             latent_image = EmptyLatentImage.generate(width, height)[0]
         elif base_image and mask_image:
             task = 'inpaint'
-            mask_image = pil2tensor(mask_grow(load_image(mask_image).convert('L'), mask_grow_size))
+            mask_image = pil2tensor(mask_blur(mask_grow(load_image(mask_image).convert('L'), mask_grow_size), mask_blur_size))
             base_image = pil2tensor(load_image(base_image))
             if use_stitch:
                 cropper = InpaintCrop()
-                stitch, base_image, mask_image = cropper.inpaint_crop_single_image(base_image, mask_image, blur_mask_pixels=mask_blur_size, invert_mask=use_mask_invert)
-            pos_cond, neg_cond, latent_image = InpaintCondition.encode(pos_cond, neg_cond, base_image, self.vae, mask_image)
+                stitch, base_image, mask_image = cropper.inpaint_crop_single_image(base_image, mask_image, blur_mask_pixels=0, invert_mask=use_mask_invert)
+            VAEEncodeInpaint = nodes.VAEEncodeForInpaint()
+            latent_image = VAEEncodeInpaint.encode(self.vae, base_image, mask_image)[0]
         else:
             task = 'img2img'
             base_image = pil2tensor(load_image(base_image))
@@ -205,28 +207,38 @@ class SDContainer:
 
             if hires_fix:
                 print('hires fix ...')
-                latent_image = LatentUpscaleBy.upscale(sample, 'bislerp', hires_fix_scale_by)[0]
+
+                if task == 'inpaint':
+                    sample = VAEDecode.decode(self.vae, sample)[0]
+                    ImageScaleBy = nodes.ImageScaleBy()
+                    sample = ImageScaleBy.upscale(sample, 'bicubic', hires_fix_scale_by)[0]
+                    latent_image = VAEEncode.encode(self.vae, sample)[0]
+                    hires_denoise = 0.2
+                else:
+                    # latent upscale require denoise strength upper 0.5
+                    hires_denoise = 0.5
+                    latent_image = LatentUpscaleBy.upscale(sample, 'bislerp', hires_fix_scale_by)[0]
+
                 sample = KSampler.sample(
                     self.unet_f,
                     seed=seed_it,
-                    steps=int(steps * 0.5),
+                    steps=int(steps * hires_denoise),
                     cfg=cfg,
                     sampler_name=sampler_name,
                     scheduler=scheduler,
                     positive=pos_cond,
                     negative=neg_cond,
                     latent_image=latent_image,
-                    denoise=0.5,
+                    denoise=hires_denoise,
                 )[0]
 
             decoded = VAEDecode.decode(self.vae, sample)[0].detach()
 
-            if task == 'inpaint' and use_stitch:
-                stitcher = InpaintStitch()
-                if hires_fix:
-                    _, H, W, _ = base_image.shape
-                    decoded = common_upscale(decoded, W, H, 'bislerp', 'disable')
-                decoded = stitcher.inpaint_stitch_single_image(stitch, decoded)[0]
+            if task == 'inpaint':
+                decoded = ImageCompositer.composite(base_image, decoded, 0, 0, True, mask_image)[0]
+                if use_stitch:
+                    stitcher = InpaintStitch()
+                    decoded = stitcher.inpaint_stitch_single_image(stitch, decoded)[0]
 
             images.append(tensor2pil(decoded))
         return images
