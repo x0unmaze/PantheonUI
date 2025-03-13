@@ -609,7 +609,7 @@ def dtype_size(dtype):
     return dtype_size
 
 def unet_offload_device():
-    if vram_state == VRAMState.HIGH_VRAM:
+    if vram_state == VRAMState.HIGH_VRAM and vram_state != VRAMState.NORMAL_VRAM:
         return get_torch_device()
     else:
         return torch.device("cpu")
